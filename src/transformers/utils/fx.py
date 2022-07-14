@@ -518,11 +518,13 @@ _MANUAL_META_OVERRIDES: Dict[Callable, Callable] = {
     operator.getitem: operator_getitem,
 }
 
-
 class HFProxy(Proxy):
     """
     Proxy that uses metadata to handle data-dependent control-flow.
     """
+    def __init__(self, node, s, user_constraints=None):
+        super(HFProxy, self).__init__(node, s)
+        self.user_constraints = user_constraints
 
     def install_metadata(self, metadata):
         self._metadata = metadata
@@ -549,7 +551,8 @@ class HFProxy(Proxy):
         return super().__len__()
 
     def __bool__(self):
-        positive, negative = evaluate_conditional_with_constraints(self.tracer.root, self.node.graph, self.node)
+        positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
+                                                                   self.node.graph, self.node, user_constraints=self.user_constraints)
         # print(positive)
         # print(negative)
 
@@ -657,13 +660,14 @@ class HFTracer(Tracer):
     regular PyTorch torch.fx.Proxy.
     """
 
+
     # Feature flag for proxying accesses to buffer values
     proxy_buffer_attributes: bool = True
     allow_insert_stateless_mods: bool = True
     _TORCH_METHODS_TO_PATCH = ["arange", "zeros", "ones", "full", "full_like", "eye", "empty", "tensor"]
 
-    def __init__(self, autowrap_modules=(math,), autowrap_functions=()):
-
+    def __init__(self, autowrap_modules=(math,), autowrap_functions=(), user_constraints=None):
+        self.user_constraints = user_constraints
         super().__init__(autowrap_modules=autowrap_modules, autowrap_functions=autowrap_functions)
 
         if not is_torch_fx_available():
@@ -900,7 +904,7 @@ class HFTracer(Tracer):
         return super().call_module(m, forward, args, kwargs)
 
     def proxy(self, node):
-        return HFProxy(node, self)
+        return HFProxy(node, self, self.user_constraints)
 
     def trace(self, root: PreTrainedModel, concrete_args: Optional[Dict[str, Any]] = None) -> Graph:
         if concrete_args is None:
