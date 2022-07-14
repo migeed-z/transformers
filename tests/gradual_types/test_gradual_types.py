@@ -30,11 +30,11 @@ def generate_concrete_args_for_model(model, input_names=None):
     return concrete_args
 
 
-def generate_hf_model(model_cls):
+def generate_hf_model(model_cls, hidden_layers=0):
     config_cls = model_cls.config_class
     config = config_cls()
     # we simplify the model for now by removing the hidden layers
-    config.num_hidden_layers = 0
+    config.num_hidden_layers = hidden_layers
     if model_cls in [GPT2ForSequenceClassification, GPTNeoForSequenceClassification, GPTJForSequenceClassification] or \
             model_cls.__name__.startswith("Roberta") or model_cls.__name__.startswith("Marian"):
         config.pad_token_id = 0
@@ -117,9 +117,9 @@ model_classes = [XGLMModel, AlbertModel, BartModel, BertModel, DistilBertModel, 
  GPTJModel, GPTNeoModel, MegatronBertModel, MobileBertModel, RobertaModel, T5Model,
  BlenderbotModel, BlenderbotSmallModel]
 
-traces = []
 
-s1, s2, s3, s4, s5, s6 = z3.Ints('s1 s2 s3 s4 s5 s6')
+
+s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
 input = z3.Const(1, tensor_type)
 
 # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
@@ -127,26 +127,43 @@ input = z3.Const(1, tensor_type)
 user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 2000])
 all_user_constraints = {XGLMModel: user_constraints_XGLMModel}
 
-# generate traces for HF models using the HF tracer
-for c in model_classes:
-    m = generate_hf_model(c)
-    input_dict = generate_inputs_for_model(c, m)
-    replicate = True
-    multi_use_param_config = MultiUseParameterConfig.REPLICATE if replicate else MultiUseParameterConfig.TRANSMIT
-    concrete_args = generate_concrete_args_for_model(m, input_dict.keys())
 
-    hf_tracer = fx.HFTracer(user_constraints=all_user_constraints[c])
-    g = GraphModule(m, hf_tracer.trace(m, concrete_args=concrete_args))
-    traces.append(g)
 
-    # we generate the trace for the first model
-    break
+
+def generate_traces(model_classes, hidden_layers=0):
+    """
+    generate traces for HF models using the HF tracer
+    :param model_classes: List of model classes
+    :param hidden_layers: number of hidden layers
+    :return: list of traces
+    """
+    traces = []
+    for c in model_classes:
+        m = generate_hf_model(c, hidden_layers)
+        input_dict = generate_inputs_for_model(c, m)
+        replicate = True
+        multi_use_param_config = MultiUseParameterConfig.REPLICATE if replicate else MultiUseParameterConfig.TRANSMIT
+        concrete_args = generate_concrete_args_for_model(m, input_dict.keys())
+
+        hf_tracer = fx.HFTracer(user_constraints=all_user_constraints[c])
+        g = GraphModule(m, hf_tracer.trace(m, concrete_args=concrete_args))
+        traces.append(g)
+        return traces
 
 
 class HFModels(unittest.TestCase):
 
+    def test_trace_model_hidden_layers_1(self):
+        XGLMModel_trace = generate_traces([XGLMModel])[0]
+        input = torch.ones([2, 4], dtype=torch.long)
+        # generate shapes for a particular input to compare with
+        # our shape inference
+        sample_input = input
+        ShapeProp(XGLMModel_trace).propagate(sample_input)
+
+
     def test_trace_model(self):
-        XGLMModel_trace = traces[0]
+        XGLMModel_trace = generate_traces([XGLMModel])[0]
         input = torch.ones([2, 4], dtype=torch.long)
         # generate shapes for a particular input to compare with
         # our shape inference
@@ -161,7 +178,7 @@ class HFModels(unittest.TestCase):
             if n.name == 'input_ids':
                 n.type = TT([Dyn, 4])
 
-        constraints = transform_all_constraints(g, counter=0)
+        constraints = transform_all_constraints(XGLMModel_trace, counter=0)
         s = z3.Solver()
         s.add(constraints)
         self.assertEqual(s.check(), z3.sat)
@@ -183,9 +200,9 @@ class HFModels(unittest.TestCase):
         # we want the second input to not be dyn so we change
         # the first parameter to not equal 0 and we will get one satisfying assignment
         # by looking at s.model()
-        # s.add(s1 != 0)
-        # self.assertEqual(s.check(), z3.sat)
-        #
-        # # we can also check a particular assignment
-        # s.add(s2 == 4)
-        # self.assertEqual(s.check(), z3.sat)
+        s.add(s1 != 0)
+        self.assertEqual(s.check(), z3.sat)
+
+        # we can also check a particular assignment
+        s.add(s2 == 2)
+        self.assertEqual(s.check(), z3.sat)
