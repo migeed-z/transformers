@@ -22,11 +22,12 @@ import operator
 import random
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Type, Union
-
+import z3
 import torch
 from packaging import version
 from torch import nn
 from torch.fx import Graph, GraphModule, Proxy, Tracer
+from torch.fx.experimental.migrate_gradual_types.transform_to_z3 import evaluate_conditional_with_constraints
 from torch.fx.proxy import ParameterProxy
 
 from .. import PretrainedConfig, PreTrainedModel, logging
@@ -516,11 +517,13 @@ _MANUAL_META_OVERRIDES: Dict[Callable, Callable] = {
     operator.getitem: operator_getitem,
 }
 
-
 class HFProxy(Proxy):
     """
     Proxy that uses metadata to handle data-dependent control-flow.
     """
+    def __init__(self, node, s, user_constraints=None):
+        super(HFProxy, self).__init__(node, s)
+        self.user_constraints = user_constraints
 
     def install_metadata(self, metadata):
         self._metadata = metadata
@@ -547,9 +550,26 @@ class HFProxy(Proxy):
         return super().__len__()
 
     def __bool__(self):
-        if hasattr(self, "_metadata") and self._metadata is not None:
-            return self._metadata
-        return super().__bool__()
+        positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
+                                                                   self.node.graph, self.node, user_constraints=self.user_constraints)
+        # print(positive)
+        # print(negative)
+
+        # if hasattr(self, "_metadata") and self._metadata is not None:
+        #     print(self._metadata)
+        #     print('\n')
+            # return self._metadata
+        #
+        # return super().__bool__()
+
+        if positive == z3.sat and negative == z3.unsat:
+            return True
+        elif positive == z3.unsat and negative == z3.sat:
+            return False
+        else:
+            raise RuntimeError('Not enough information')
+
+
 
     def __getattr__(self, k):
         if k == "_metadata":
@@ -639,13 +659,14 @@ class HFTracer(Tracer):
     regular PyTorch torch.fx.Proxy.
     """
 
+
     # Feature flag for proxying accesses to buffer values
     proxy_buffer_attributes: bool = True
     allow_insert_stateless_mods: bool = True
     _TORCH_METHODS_TO_PATCH = ["arange", "zeros", "ones", "full", "full_like", "eye", "empty", "tensor"]
 
-    def __init__(self, autowrap_modules=(math,), autowrap_functions=()):
-
+    def __init__(self, autowrap_modules=(math,), autowrap_functions=(), user_constraints=None):
+        self.user_constraints = user_constraints
         super().__init__(autowrap_modules=autowrap_modules, autowrap_functions=autowrap_functions)
 
         if not is_torch_fx_available():
@@ -882,7 +903,7 @@ class HFTracer(Tracer):
         return super().call_module(m, forward, args, kwargs)
 
     def proxy(self, node):
-        return HFProxy(node, self)
+        return HFProxy(node, self, self.user_constraints)
 
     def trace(self, root: PreTrainedModel, concrete_args: Optional[Dict[str, Any]] = None) -> Graph:
         if concrete_args is None:
