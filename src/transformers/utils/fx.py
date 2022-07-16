@@ -550,18 +550,12 @@ class HFProxy(Proxy):
         return super().__len__()
 
     def __bool__(self):
-
-        try:
-            positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
+        positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
                                                                        self.node.graph,
                                                                        self.node,
                                                                        user_constraints=self.user_constraints)
 
-            print(f'Node: {self}, {positive}, {negative}')
-
-        except:
-            print('Operation yet implemented')
-            pass
+        print(f'Node: {self}, {positive}, {negative}')
 
         if hasattr(self, "_metadata") and self._metadata is not None:
             print(self._metadata)
