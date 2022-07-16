@@ -550,26 +550,32 @@ class HFProxy(Proxy):
         return super().__len__()
 
     def __bool__(self):
-        positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
-                                                                   self.node.graph, self.node, user_constraints=self.user_constraints)
-        # print(positive)
-        # print(negative)
 
-        # if hasattr(self, "_metadata") and self._metadata is not None:
-        #     print(self._metadata)
-        #     print('\n')
-            # return self._metadata
-        #
-        # return super().__bool__()
+        try:
+            positive, negative = evaluate_conditional_with_constraints(self.tracer.root,
+                                                                       self.node.graph,
+                                                                       self.node,
+                                                                       user_constraints=self.user_constraints)
 
-        if positive == z3.sat and negative == z3.unsat:
-            return True
-        elif positive == z3.unsat and negative == z3.sat:
-            return False
-        else:
-            raise RuntimeError('Not enough information')
+            print(f'Node: {self}, {positive}, {negative}')
 
+        except:
+            print('Operation yet implemented')
+            pass
 
+        if hasattr(self, "_metadata") and self._metadata is not None:
+            print(self._metadata)
+            print('\n')
+            return self._metadata
+
+        return super().__bool__()
+
+        # if positive == z3.sat and negative == z3.unsat:
+        #     return True
+        # elif positive == z3.unsat and negative == z3.sat:
+        #     return False
+        # else:
+        #     raise RuntimeError('Not enough information')
 
     def __getattr__(self, k):
         if k == "_metadata":
