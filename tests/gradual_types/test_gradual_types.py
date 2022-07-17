@@ -234,6 +234,7 @@ class HFModels(unittest.TestCase):
         self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
         self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
 
+
     def test_trace_model(self):
 
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
