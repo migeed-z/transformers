@@ -161,7 +161,6 @@ class HFModels(unittest.TestCase):
         user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 2000])
 
         XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
-
         input = torch.ones([4, 32], dtype=torch.long)
 
         # generate shapes for a particular input to compare with
@@ -172,67 +171,77 @@ class HFModels(unittest.TestCase):
 
         for n in XGLMModel_trace.graph.nodes:
             if n.name == 'input_ids':
-                n.type = TT([Dyn, 32])
+                n.type = TT([4, 32])
 
         constraints = transform_all_constraints(XGLMModel_trace, counter=0)
         s = z3.Solver()
         s.add(constraints)
+
+
+        for n in XGLMModel_trace.graph.nodes:
+            if n.name == 'bmm':
+                bmm_runtime = n.meta['tensor_meta'].shape
+
         self.assertEqual(s.check(), z3.sat)
+        bmm = z3.Const(184, tensor_type)
+
+        # print(bmm_runtime)
+        # print(s.model()[bmm])
 
 
-        input = torch.ones([4, 1000], dtype=torch.long)
-        # generate shapes for a particular input to compare with
-        # our shape inference
-        sample_input = input
-        ShapeProp(XGLMModel_trace).propagate(sample_input)
-
-        for n in XGLMModel_trace.graph.nodes:
-            if n.target == 'layer_norm':
-                layer_norm_size = n.meta['tensor_meta'].shape
-
-        for n in XGLMModel_trace.graph.nodes:
-            if n.name == 'input_ids':
-                n.type = TT([Dyn, 1000])
-
-        constraints = transform_all_constraints(XGLMModel_trace, counter=0)
-        s = z3.Solver()
-        s.add(constraints)
-        self.assertEqual(s.check(), z3.sat)
-
-        ne_1 = z3.Bool(191)
-        self.assertEqual(s.model()[ne_1], False)
-
-        layer_norm = z3.Const(310, tensor_type)
-
-        # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
-        self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
-        self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
-        self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
-
-        input = torch.ones([4, 500], dtype=torch.long)
-        # generate shapes for a particular input to compare with
-        # our shape inference
-        sample_input = input
-        ShapeProp(XGLMModel_trace).propagate(sample_input)
-
-        for n in XGLMModel_trace.graph.nodes:
-            if n.target == 'layer_norm':
-                layer_norm_size = n.meta['tensor_meta'].shape
-
-        for n in XGLMModel_trace.graph.nodes:
-            if n.name == 'input_ids':
-                n.type = TT([Dyn, 500])
-
-        constraints = transform_all_constraints(XGLMModel_trace, counter=0)
-        s = z3.Solver()
-        s.add(constraints)
-        self.assertEqual(s.check(), z3.sat)
-        layer_norm = z3.Const(310, tensor_type)
-
-        # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
-        self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
-        self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
-        self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+        # input = torch.ones([4, 1000], dtype=torch.long)
+        # # generate shapes for a particular input to compare with
+        # # our shape inference
+        # sample_input = input
+        # ShapeProp(XGLMModel_trace).propagate(sample_input)
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.target == 'layer_norm':
+        #         layer_norm_size = n.meta['tensor_meta'].shape
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([Dyn, 1000])
+        #
+        # constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        # s = z3.Solver()
+        # s.add(constraints)
+        # self.assertEqual(s.check(), z3.sat)
+        #
+        # ne_1 = z3.Bool(191)
+        # self.assertEqual(s.model()[ne_1], False)
+        #
+        # layer_norm = z3.Const(310, tensor_type)
+        #
+        # # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
+        # self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        # self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        # self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+        #
+        # input = torch.ones([4, 500], dtype=torch.long)
+        # # generate shapes for a particular input to compare with
+        # # our shape inference
+        # sample_input = input
+        # ShapeProp(XGLMModel_trace).propagate(sample_input)
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.target == 'layer_norm':
+        #         layer_norm_size = n.meta['tensor_meta'].shape
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([Dyn, 500])
+        #
+        # constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        # s = z3.Solver()
+        # s.add(constraints)
+        # self.assertEqual(s.check(), z3.sat)
+        # layer_norm = z3.Const(310, tensor_type)
+        #
+        # # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
+        # self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        # self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        # self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
 
 
     def test_trace_model(self):
@@ -257,16 +266,16 @@ class HFModels(unittest.TestCase):
 
         for n in XGLMModel_trace.graph.nodes:
             if n.name == 'input_ids':
-                n.type = TT([Dyn, 32])
+                n.type = TT([4, 32])
 
         constraints = transform_all_constraints(XGLMModel_trace, counter=0)
         s = z3.Solver()
         s.add(constraints)
         self.assertEqual(s.check(), z3.sat)
-        layer_norm = z3.Const(82, tensor_type)
 
-        # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
-        self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        layer_norm = z3.Const(85, tensor_type)
+
+        self.assertEqual(s.model()[layer_norm].arg(0).arg(1), layer_norm_size[0])
         self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
         self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
 
@@ -282,19 +291,17 @@ class HFModels(unittest.TestCase):
 
         for n in XGLMModel_trace.graph.nodes:
             if n.name == 'input_ids':
-                n.type = TT([Dyn, 1000])
+                n.type = TT([4, 1000])
 
         constraints = transform_all_constraints(XGLMModel_trace, counter=0)
         s = z3.Solver()
         s.add(constraints)
         self.assertEqual(s.check(), z3.sat)
-        layer_norm = z3.Const(82, tensor_type)
+        layer_norm = z3.Const(85, tensor_type)
 
-        # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
-        self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        self.assertEqual(s.model()[layer_norm].arg(0).arg(1), layer_norm_size[0])
         self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
         self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
-
 
         input = torch.ones([4, 500], dtype=torch.long)
         # generate shapes for a particular input to compare with
@@ -308,15 +315,85 @@ class HFModels(unittest.TestCase):
 
         for n in XGLMModel_trace.graph.nodes:
             if n.name == 'input_ids':
-                n.type = TT([Dyn, 500])
+                n.type = TT([4, 500])
 
         constraints = transform_all_constraints(XGLMModel_trace, counter=0)
         s = z3.Solver()
         s.add(constraints)
         self.assertEqual(s.check(), z3.sat)
-        layer_norm = z3.Const(82, tensor_type)
+        layer_norm = z3.Const(85, tensor_type)
 
-        # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
-        self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        self.assertEqual(s.model()[layer_norm].arg(0).arg(1), layer_norm_size[0])
+        self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+
+
+    def test_trace_model_r3(self):
+
+        s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
+        input = z3.Const(1, tensor_type)
+
+        # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
+        # ranging over a set of natural numbers
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor3(D(s1, s2), D(s2, s3), D(1, s5)),  s5 > 1, s5 < 2000])
+
+        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=0)
+        input = torch.ones([4, 4, 32], dtype=torch.long)
+        # generate shapes for a particular input to compare with
+        # our shape inference
+        sample_input = input
+        ShapeProp(XGLMModel_trace).propagate(sample_input)
+
+        for n in XGLMModel_trace.graph.nodes:
+            if n.target == 'layer_norm':
+                layer_norm_size = n.meta['tensor_meta'].shape
+
+        for n in XGLMModel_trace.graph.nodes:
+            if n.name == 'input_ids':
+                n.type = TT([4, 4, 32])
+
+        constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        s = z3.Solver()
+        s.add(constraints)
+        self.assertEqual(s.check(), z3.sat)
+
+        layer_norm = z3.Const(85, tensor_type)
+
+        self.assertEqual(s.model()[layer_norm].arg(0).arg(1), layer_norm_size[0])
+        self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+
+
+    def test_trace_model_r4(self):
+
+        s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
+        input = z3.Const(1, tensor_type)
+
+        # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
+        # ranging over a set of natural numbers
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor4(D(1, s2), D(1, s3), D(1, s4), D(1, s5)),  s5 > 1, s5 < 2000])
+
+        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=0)
+        input = torch.ones([4, 4, 4, 32], dtype=torch.long)
+        # generate shapes for a particular input to compare with
+        # our shape inference
+        sample_input = input
+        ShapeProp(XGLMModel_trace).propagate(sample_input)
+
+        for n in XGLMModel_trace.graph.nodes:
+            if n.target == 'layer_norm':
+                layer_norm_size = n.meta['tensor_meta'].shape
+
+        for n in XGLMModel_trace.graph.nodes:
+            if n.name == 'input_ids':
+                n.type = TT([Dyn, 4, 4, 32])
+
+        constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        s = z3.Solver()
+        s.add(constraints)
+        self.assertEqual(s.check(), z3.sat)
+
+        layer_norm = z3.Const(85, tensor_type)
+
         self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
         self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
