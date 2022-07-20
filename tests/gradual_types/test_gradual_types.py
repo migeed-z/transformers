@@ -133,26 +133,11 @@ class HFModels(unittest.TestCase):
 
 
 
-
-    def test_trace_model_no_hidden_layers(self):
-        s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
+    def test_electra_model_0(self):
         input = z3.Const(1, tensor_type)
-
-        # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
-        # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 2000,
-                                             s2 > 0])
-        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel)
-
-    def test_trace_model_hidden_layers_3(self):
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-        input = z3.Const(1, tensor_type)
-
-        # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
-        # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 2000,
-                                             s2 > 0])
-        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=3)
+        user_constraints = z3.And([input == tensor_type.tensor3(D(1, s1), D(1, s2))])
+        generate_trace(ElectraModel, hidden_layers=1, user_constraints=user_constraints)
 
     def test_trace_model_hidden_layers_2(self):
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
@@ -162,7 +147,7 @@ class HFModels(unittest.TestCase):
         # ranging over a set of natural numbers
         user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 2000,
                                              s2 > 0])
-        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=2)
+        generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=2)
 
 
     def test_trace_model_hidden_layers_1(self):
@@ -173,7 +158,7 @@ class HFModels(unittest.TestCase):
         # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
         # ranging over a set of natural numbers
         user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)), s3 > 1, s3 < 2000, s2 > 0])
-        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
+        generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
 
 
     def test_trace_model(self):
