@@ -131,13 +131,12 @@ def generate_trace(model_class, user_constraints=None, hidden_layers=None):
 
 class HFModels(unittest.TestCase):
 
-
-
     def test_electra_model_0(self):
         input = z3.Const(1, tensor_type)
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-        user_constraints = z3.And([input == tensor_type.tensor3(D(1, s1), D(1, s2))])
-        generate_trace(ElectraModel, hidden_layers=1, user_constraints=user_constraints)
+        user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
+        trace = generate_trace(ElectraModel, hidden_layers=1, user_constraints=user_constraints)
+        print(trace)
 
     def test_trace_model_hidden_layers_2(self):
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
