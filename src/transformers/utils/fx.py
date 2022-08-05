@@ -562,6 +562,7 @@ class HFProxy(Proxy):
             print('\n')
             return self._metadata
 
+        print(super().__bool__())
         return super().__bool__()
 
         # if positive == z3.sat and negative == z3.unsat:

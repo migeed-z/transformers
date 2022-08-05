@@ -116,8 +116,8 @@ def generate_inputs_for_model(model_cls, model, include_loss_args=False):
 
 
 model_classes = [XGLMModel, AlbertModel, BartModel, BertModel, DistilBertModel, ElectraModel, GPT2Model,
- GPTJModel, GPTNeoModel, MegatronBertModel, MobileBertModel, RobertaModel, T5Model,
- BlenderbotModel, BlenderbotSmallModel]
+                 GPTJModel, GPTNeoModel, MobileBertModel, RobertaModel, T5Model,
+                 BlenderbotModel, BlenderbotSmallModel]
 
 
 def generate_trace(model_class, user_constraints=None, hidden_layers=None):
@@ -131,58 +131,39 @@ def generate_trace(model_class, user_constraints=None, hidden_layers=None):
 
 class HFModels(unittest.TestCase):
 
-    # def test_new(self):
-    #     trace = generate_trace(MobileBertModel, hidden_layers=0)
-    #     print(trace)
-    #
-    #
-    # def test_new_2(self):
-    #     s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-    #     input = z3.Const(1, tensor_type)
-    #
-    #     # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
-    #     # ranging over a set of natural numbers
-    #     user_constraints = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 2000])
-    #
-    #     # M2M100Model
-    #     trace = generate_trace(M2M100Model, hidden_layers=0, user_constraints=user_constraints)
-    #     print(trace)
+    def test_trace_electra_model(self):
+        electra_model = generate_trace( M2M100Model)
+        print( M2M100Model)
+
+        # for n in Electra_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = Dyn
+        #
+        # constraints = transform_all_constraints(Electra_trace, counter=0)
 
 
-    def test_RobertaModel(self):
-        trace = generate_trace(RobertaModel)
-        # print(trace)
+    def test_trace_model_no_hidden_layers(self):
 
-    def test_MegatronBertModel(self):
-        # input = z3.Const(1, tensor_type)
-        # s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-        # user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
-        trace = generate_trace(MegatronBertModel)
-
-    def test_MobileBertModel(self):
-        input = z3.Const(1, tensor_type)
-        s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-        user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
-        trace = generate_trace(MobileBertModel, user_constraints=user_constraints)
-
-    def test_BertModel(self):
-        trace = generate_trace(BertModel, hidden_layers=1)
-
-    def test_electra_model_0(self):
-        input = z3.Const(1, tensor_type)
-        s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-        user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
-        trace = generate_trace(ElectraModel)
-
-    def test_trace_model_hidden_layers_2(self):
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
         input = z3.Const(1, tensor_type)
 
         # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
         # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 1000,
-                                             s2 > 0])
-        generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=2)
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)), s2 > 0,  s3 > 1, s3 < 2000])
+
+        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel)
+
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([4, 32])
+
+        input = torch.ones([4, 32], dtype=torch.long)
+
+        # generate shapes for a particular input to compare with
+        # our shape inference
+        sample_input = input
+        ShapeProp(XGLMModel_trace).propagate(sample_input)
+
 
     def test_trace_model_hidden_layers_1(self):
 
@@ -191,8 +172,120 @@ class HFModels(unittest.TestCase):
 
         # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
         # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)), s3 > 1, s3 < 2000, s2 > 0])
-        generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 2000,
+                                             s2 > 0])
+        XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
+
+
+        # generate shapes for a particular input to compare with
+        # our shape inference
+        sample_input = torch.ones([4, 32], dtype=torch.long)
+        ShapeProp(XGLMModel_trace).propagate(sample_input)
+
+
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([4, 32])
+        #
+        # constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        # s = z3.Solver()
+        # s.add(constraints)
+
+
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'bmm':
+        #         bmm_runtime = n.meta['tensor_meta'].shape
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'layers_0_self_attn_layer_norm':
+        #         layer_norm_runtime = n.meta['tensor_meta'].shape
+        #
+        # self.assertEqual(s.check(), z3.sat)
+        #
+        #
+        # bmm = z3.Const(184, tensor_type)
+        #
+        # print('bmm')
+        # print(bmm_runtime)
+        # print(s.model()[bmm])
+        # print('\n')
+        #
+        #
+        # print('getitem')
+        # getitem_8 = z3.Int(98)
+        # print(s.model()[getitem_8])
+        # print('\n')
+        #
+        # print('size_6')
+        # size_6 = z3.Int(182)
+        # print(s.model()[size_6])
+        # print('\n')
+        #
+        # print('mul_4')
+        # mul_4 = z3.Int(193)
+        # print(s.model()[mul_4])
+        # print('\n')
+
+
+        # layer_norm = z3.Const(85, tensor_type)
+        # print('layer norm')
+        # print(layer_norm_runtime)
+        # print(s.model()[layer_norm])
+        #
+        # input = torch.ones([4, 1000], dtype=torch.long)
+        # # generate shapes for a particular input to compare with
+        # # our shape inference
+        # sample_input = input
+        # ShapeProp(XGLMModel_trace).propagate(sample_input)
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.target == 'layer_norm':
+        #         layer_norm_size = n.meta['tensor_meta'].shape
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([Dyn, 1000])
+        #
+        # constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        # s = z3.Solver()
+        # s.add(constraints)
+        # self.assertEqual(s.check(), z3.sat)
+        #
+        # ne_1 = z3.Bool(191)
+        # self.assertEqual(s.model()[ne_1], False)
+        #
+        # layer_norm = z3.Const(310, tensor_type)
+        #
+        # # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
+        # self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        # self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        # self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+        #
+        # input = torch.ones([4, 500], dtype=torch.long)
+        # # generate shapes for a particular input to compare with
+        # # our shape inference
+        # sample_input = input
+        # ShapeProp(XGLMModel_trace).propagate(sample_input)
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.target == 'layer_norm':
+        #         layer_norm_size = n.meta['tensor_meta'].shape
+        #
+        # for n in XGLMModel_trace.graph.nodes:
+        #     if n.name == 'input_ids':
+        #         n.type = TT([Dyn, 500])
+        #
+        # constraints = transform_all_constraints(XGLMModel_trace, counter=0)
+        # s = z3.Solver()
+        # s.add(constraints)
+        # self.assertEqual(s.check(), z3.sat)
+        # layer_norm = z3.Const(310, tensor_type)
+        #
+        # # we annotated the first dimension of the input with Dyn but the first dimension is lost due to view anyway.
+        # self.assertEqual(s.model()[layer_norm].arg(0).arg(0), 0)
+        # self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
+        # self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+
 
     def test_trace_model(self):
 
@@ -201,11 +294,11 @@ class HFModels(unittest.TestCase):
 
         # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
         # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 2000])
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 3000])
 
         XGLMModel_trace = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=0)
 
-        input = torch.ones([4, 32], dtype=torch.long)
+        input = torch.ones([0, 3000], dtype=torch.long)
         # generate shapes for a particular input to compare with
         # our shape inference
         sample_input = input
@@ -348,3 +441,19 @@ class HFModels(unittest.TestCase):
 
         self.assertEqual(s.model()[layer_norm].arg(1).arg(1), layer_norm_size[1])
         self.assertEqual(s.model()[layer_norm].arg(2).arg(1), layer_norm_size[2])
+
+
+
+
+
+    def test_torchdynamo(self):
+        import torchdynamo
+        def my_compiler(gm: torch.fx.GraphModule, example_inputs):
+            return gm  # return a python callable
+
+        # torchdynamo.config.debug = True
+        torchdynamo.config.dynamic_shapes = True
+
+        with torchdynamo.optimize(my_compiler):
+            m = generate_hf_model(XGLMModel, 0)
+            m.forward(torch.ones([4, 1000], dtype=torch.long))
