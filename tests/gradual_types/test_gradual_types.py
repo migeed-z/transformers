@@ -11,6 +11,33 @@ from torch.fx.tensor_type import Dyn
 from src.transformers import *
 import src.transformers.utils.fx as fx
 import z3
+from timeit import default_timer as timer
+from datetime import timedelta
+
+
+def compute_flatten_and_reshape(trace):
+    """
+    Calculates the number of occurrences of reshape and flatten, from a trace.
+    :return: A tuple of the occurrences of flatten and reshape.
+    """
+    flatten_count = 0
+    reshape_count = 0
+    for n in trace.graph.nodes:
+        if n.target == torch.flatten:
+            flatten_count += 1
+
+        if n.target == 'reshape':
+            reshape_count +=1
+
+        if n.target == 'view':
+            reshape_count +=1
+
+        if n.target == torch.reshape:
+            reshape_count +=1
+
+    return flatten_count, reshape_count
+
+
 
 bs = 4
 num_choices = 3
@@ -20,8 +47,6 @@ seq_length = 32
 class MultiUseParameterConfig(Enum):
     TRANSMIT = 1
     REPLICATE = 2
-
-
 
 def generate_concrete_args_for_model(model, input_names=None):
     input_names = input_names if input_names else model.dummy_inputs.keys()
@@ -131,59 +156,138 @@ def generate_trace(model_class, user_constraints=None, hidden_layers=None):
 
 class HFModels(unittest.TestCase):
 
-    # def test_new(self):
-    #     trace = generate_trace(MobileBertModel, hidden_layers=0)
-    #     print(trace)
-    #
-    #
-    # def test_new_2(self):
-    #     s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
-    #     input = z3.Const(1, tensor_type)
-    #
-    #     # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
-    #     # ranging over a set of natural numbers
-    #     user_constraints = z3.And([input == tensor_type.tensor2(D(s1, s2), D(1, s3)),  s3 > 1, s3 < 2000])
-    #
-    #     # M2M100Model
-    #     trace = generate_trace(M2M100Model, hidden_layers=0, user_constraints=user_constraints)
-    #     print(trace)
+    def test_compute_benchmark_info(self):
+        trace = generate_trace(XGLMModel, hidden_layers=1)
+        print('XGLM')
+        print(compute_flatten_and_reshape(trace))
+        print(len(trace.graph.nodes))
+
+        #
+        # trace = generate_trace(M2M100Model, hidden_layers=0)
+        # print('M2m100')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+        #
+        # trace = generate_trace(ElectraModel, hidden_layers=0)
+        # print('Electra')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+        #
+        # trace = generate_trace(RobertaModel, hidden_layers=0)
+        # print('Roberta')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+
+        # trace = generate_trace(BertModel, hidden_layers=0)
+        # print(' bert')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+        # trace = generate_trace(MobileBertModel, hidden_layers=0)
+        # print('mobile bert')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+
+        # trace = generate_trace(MegatronBertModel, hidden_layers=0)
+        # print('megatron bert ')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+
+        # trace = generate_trace(MarianModel, hidden_layers=0)
+        # print('marian ')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+        #
+        # trace = generate_trace(MarianMTModel, hidden_layers=0)
+        # print('marian ')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+        #
+        #
+        # trace = generate_trace(BlenderbotModel, hidden_layers=0)
+        # print('blender bot ')
+        # print(len(trace.graph.nodes))
+        # print(compute_flatten_and_reshape(trace))
+
+
+    def test_DynamoModels(self):
+        # start = timer()
+        trace = generate_trace(MarianModel)
+        # end = timer()
+        # print(len(trace.graph.nodes))
+        # print(timedelta(seconds=end-start))
+        # print(trace)
+
 
 
     def test_RobertaModel(self):
+        start = timer()
         trace = generate_trace(RobertaModel)
+        end = timer()
+        print(len(trace.graph.nodes))
+        print(timedelta(seconds=end-start))
         # print(trace)
+
+
+
 
     def test_MegatronBertModel(self):
         # input = z3.Const(1, tensor_type)
         # s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
         # user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
+        start = timer()
         trace = generate_trace(MegatronBertModel)
+        end = timer()
+        print(timedelta(seconds=end-start))
+        print(len(trace.graph.nodes))
 
     def test_MobileBertModel(self):
         input = z3.Const(1, tensor_type)
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
         user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
+        start = timer()
         trace = generate_trace(MobileBertModel, user_constraints=user_constraints)
-
+        end = timer()
+        print(timedelta(seconds=end-start))
+        print(len(trace.graph.nodes))
     def test_BertModel(self):
-        trace = generate_trace(BertModel, hidden_layers=1)
+        start = timer()
+        trace = generate_trace(BertModel)
+        end = timer()
+        print(timedelta(seconds=end-start))
+        print(len(trace.graph.nodes))
+
 
     def test_electra_model_0(self):
         input = z3.Const(1, tensor_type)
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
         user_constraints = z3.And([input == tensor_type.tensor2(D(1, s1), D(1, s2))])
 
-        trace = generate_trace(ElectraModel, hidden_layers=1, user_constraints=user_constraints)
+        start = timer()
+        trace = generate_trace(ElectraModel, user_constraints=user_constraints)
+        end = timer()
+        print(timedelta(seconds=end-start))
+        print(len(trace.graph.nodes))
 
-    def test_trace_model_hidden_layers_2(self):
+    def test_trace_model_hidden_layers_paper(self):
         s1, s2, s3, s4, s5, s6 = z3.Ints('x1 x2 x3 x4 x5 x6')
         input = z3.Const(1, tensor_type)
 
         # constraints for XGLMModel that say that the input is a tensor of size 2 with the last dimension
         # ranging over a set of natural numbers
-        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 1000,
+        user_constraints_XGLMModel = z3.And([input == tensor_type.tensor2(D(1, s2), D(1, s3)),  s3 > 1, s3 < 2000,
                                              s2 > 0])
-        generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=2)
+        start = timer()
+        t = generate_trace(XGLMModel, user_constraints=user_constraints_XGLMModel, hidden_layers=1)
+        end = timer()
+        print(timedelta(seconds=end-start))
+        print(len(t.graph.nodes))
+
 
     def test_trace_model_hidden_layers_1(self):
 

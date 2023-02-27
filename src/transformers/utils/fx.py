@@ -554,12 +554,11 @@ class HFProxy(Proxy):
                                                                        self.node.graph,
                                                                        self.node,
                                                                        user_constraints=self.user_constraints)
-
         print(f'Node: {self}, {positive}, {negative}')
 
         if hasattr(self, "_metadata") and self._metadata is not None:
-            print(self._metadata)
-            print('\n')
+            # print(self._metadata)
+            # print('\n')
             return self._metadata
 
         print(super().__bool__())
