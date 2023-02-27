@@ -554,11 +554,20 @@ class HFProxy(Proxy):
                                                                        self.node.graph,
                                                                        self.node,
                                                                        user_constraints=self.user_constraints)
-        print(f'Node: {self}, {positive}, {negative}')
+
+        our_res = None
+
+        if positive == z3.sat and negative == z3.unsat:
+            print(f'Our result: True')
+            our_res = True
+        elif positive == z3.unsat and negative == z3.sat:
+            print(f'Our result: False')
+            our_res = False
 
         if hasattr(self, "_metadata") and self._metadata is not None:
-            # print(self._metadata)
-            # print('\n')
+            print(f'Result with one input: {self._metadata}')
+            print('\n')
+            assert self._metadata == our_res
             return self._metadata
 
         print(super().__bool__())
