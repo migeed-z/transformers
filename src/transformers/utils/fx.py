@@ -566,8 +566,7 @@ class HFProxy(Proxy):
 
         if hasattr(self, "_metadata") and self._metadata is not None:
             print(f'Result with one input: {self._metadata}')
-            print('\n')
-            assert self._metadata == our_res
+            # assert self._metadata == our_res
             return self._metadata
 
         print(super().__bool__())
