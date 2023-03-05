@@ -6,12 +6,13 @@ from timeit import default_timer as timer
 from datetime import timedelta
 from tests.gradual_types.helper_functions import generate_trace
 
+
 class HFModels(unittest.TestCase):
     def test_RobertaModel(self):
         print('\n')
         print("Roberta Model")
         start = timer()
-        trace = generate_trace(RobertaModel)
+        generate_trace(RobertaModel)
         end = timer()
         print(timedelta(seconds=end-start))
 
@@ -19,7 +20,7 @@ class HFModels(unittest.TestCase):
         print('\n')
         print("Megatron Bert Model")
         start = timer()
-        trace = generate_trace(MegatronBertModel)
+        generate_trace(MegatronBertModel)
         end = timer()
         print(timedelta(seconds=end-start))
 
